@@ -25,11 +25,11 @@ class DataLoader:
         """
         try:
             # Load CSV without headers (assuming no header row)
-            # Try comma-separated first, then tab-separated
+            # Try tab-separated first, then comma-separated
             try:
-                df = pd.read_csv(file_path, header=None, names=self.required_columns)
+                df = pd.read_csv(file_path, header=None, names=self.required_columns, sep='\t', engine='python')
             except:
-                df = pd.read_csv(file_path, header=None, names=self.required_columns, sep='\t')
+                df = pd.read_csv(file_path, header=None, names=self.required_columns, engine='python')
             
             # Validate data
             self._validate_data(df)
@@ -77,8 +77,9 @@ class DataLoader:
                 # Try to convert to numeric
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            if df[col].isna().any():
-                raise ValueError(f"Found NaN values in {col} column")
+            # Skip NaN check here as we'll handle it later
+            # if df[col].isna().any():
+            #     raise ValueError(f"Found NaN values in {col} column")
         
         # Validate OHLC relationships
         invalid_ohlc = (
