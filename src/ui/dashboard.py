@@ -108,6 +108,18 @@ def create_dashboard():
                     ])
                 ])
             ])
+        ], className="mb-4"),
+        
+        # Trades History
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader("📊 Trades History"),
+                    dbc.CardBody([
+                        html.Div(id="trades-history-table")
+                    ])
+                ])
+            ])
         ], className="mb-4")
         
     ], fluid=True)
@@ -332,5 +344,86 @@ def create_dashboard():
             except:
                 pass
         return None
+    
+    @app.callback(
+        Output('trades-history-table', 'children'),
+        Input('run-analysis', 'n_clicks')
+    )
+    def update_trades_history(n_clicks):
+        if n_clicks is None:
+            return ""
+        
+        try:
+            response = requests.get('http://localhost:8000/api/trades')
+            if response.status_code == 200:
+                data = response.json()
+                
+                if not data.get('trades'):
+                    return html.P("No trades found")
+                
+                # Create table header
+                table_header = [
+                    html.Thead(html.Tr([
+                        html.Th("Strategy"),
+                        html.Th("Entry Time"),
+                        html.Th("Entry Price"),
+                        html.Th("Exit Time"),
+                        html.Th("Exit Price"),
+                        html.Th("Side"),
+                        html.Th("Profit/Loss"),
+                        html.Th("Duration")
+                    ]))
+                ]
+                
+                # Create table body
+                table_rows = []
+                for trade in data['trades']:
+                    # Determine color based on profit/loss
+                    profit_loss = trade.get('profit', 0)
+                    color = 'green' if profit_loss > 0 else 'red' if profit_loss < 0 else 'black'
+                    
+                    # Format duration
+                    duration_minutes = trade.get('duration', 0)
+                    duration_str = f"{duration_minutes:.0f} min"
+                    
+                    # Format side
+                    side = "LONG" if trade.get('side') == 1 else "SHORT"
+                    
+                    row = html.Tr([
+                        html.Td(trade.get('strategy', '').replace('_', ' ').title()),
+                        html.Td(trade.get('entry_time', '')),
+                        html.Td(f"{trade.get('entry_price', 0):.5f}"),
+                        html.Td(trade.get('exit_time', '')),
+                        html.Td(f"{trade.get('exit_price', 0):.5f}"),
+                        html.Td(side),
+                        html.Td(
+                            f"{profit_loss:.6f}",
+                            style={'color': color, 'fontWeight': 'bold'}
+                        ),
+                        html.Td(duration_str)
+                    ])
+                    table_rows.append(row)
+                
+                table_body = html.Tbody(table_rows)
+                
+                # Create the table
+                table = dbc.Table(
+                    [table_header[0], table_body],
+                    bordered=True,
+                    hover=True,
+                    responsive=True,
+                    striped=True,
+                    className="mt-3"
+                )
+                
+                return [
+                    html.H5(f"Total Trades: {len(data['trades'])}"),
+                    html.Hr(),
+                    table
+                ]
+            else:
+                return html.P("No trades data available")
+        except Exception as e:
+            return html.P(f"Error loading trades: {str(e)}")
     
     return app

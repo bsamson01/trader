@@ -85,11 +85,8 @@ class StrategyEngine:
         try:
             strategy = self.strategies[strategy_name]
             
-            # Generate signals
-            df_with_signals = strategy.generate_signals(df)
-            
-            # Execute trades
-            trades = strategy.execute_trades(df_with_signals)
+            # Execute trades directly (no need for generate_signals)
+            trades = strategy.execute_trades(df)
             
             # Calculate performance metrics
             metrics = strategy.get_performance_metrics(trades)
@@ -198,60 +195,84 @@ class StrategyEngine:
                     'avg_r_multiple': 0,
                     'initial_capital': initial_capital,
                     'closing_capital': closing_capital,
-                    'return_pct': 0
+                    'return_pct': metrics.get('total_return_pct', 0)
                 }
         
-        # Rank strategies by total return percentage
-        if strategy_performance:
-            sorted_strategies = sorted(
-                strategy_performance.items(),
-                key=lambda x: x[1]['return_pct'],
-                reverse=True
-            )
-            
-            analysis['performance_ranking'] = [name for name, _ in sorted_strategies]
-            analysis['best_strategy'] = sorted_strategies[0][0] if sorted_strategies else None
-            analysis['worst_strategy'] = sorted_strategies[-1][0] if sorted_strategies else None
-        
-        # Calculate overall statistics
+        # Calculate overall metrics
+        analysis['total_trades'] = len(all_trades)
         analysis['total_initial_capital'] = total_initial
         analysis['total_closing_capital'] = total_closing
-        analysis['overall_return_pct'] = ((total_closing - total_initial) / total_initial * 100) if total_initial > 0 else 0
+        analysis['overall_return_pct'] = ((total_closing - total_initial) / total_initial) * 100 if total_initial > 0 else 0
         
         if all_trades:
             df_all_trades = pd.DataFrame(all_trades)
-            analysis['total_trades'] = len(all_trades)
-            analysis['overall_win_rate'] = len(df_all_trades[df_all_trades['profit'] > 0]) / len(all_trades)
+            winning_trades = len(df_all_trades[df_all_trades['profit'] > 0])
+            analysis['overall_win_rate'] = winning_trades / len(all_trades)
+        
+        # Rank strategies by return percentage
+        strategy_ranking = sorted(
+            strategy_performance.items(),
+            key=lambda x: x[1]['return_pct'],
+            reverse=True
+        )
+        
+        analysis['performance_ranking'] = [
+            {
+                'strategy': name,
+                'return_pct': perf['return_pct'],
+                'total_trades': perf['total_trades'],
+                'win_rate': perf['win_rate']
+            }
+            for name, perf in strategy_ranking
+        ]
+        
+        if strategy_ranking:
+            analysis['best_strategy'] = strategy_ranking[0][0]
+            analysis['worst_strategy'] = strategy_ranking[-1][0]
         
         return analysis
     
     def _generate_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate a summary of all strategy results."""
+        """Generate summary statistics."""
         summary = {
             'total_strategies': len(results),
-            'strategies_with_trades': 0,
+            'successful_strategies': 0,
+            'failed_strategies': 0,
             'total_trades': 0,
-            'total_initial_capital': 0,
-            'total_closing_capital': 0,
-            'best_performing': None,
-            'best_return_pct': float('-inf')
+            'best_performer': None,
+            'worst_performer': None
         }
         
+        successful_strategies = []
+        failed_strategies = []
+        
         for strategy_name, result in results.items():
-            metrics = result.get('metrics', {})
-            initial_capital = metrics.get('initial_capital', 100.0)
-            closing_capital = metrics.get('closing_capital', 100.0)
-            
-            summary['total_initial_capital'] += initial_capital
-            summary['total_closing_capital'] += closing_capital
-            
-            if result.get('trades'):
-                summary['strategies_with_trades'] += 1
-                summary['total_trades'] += len(result['trades'])
+            if 'error' in result:
+                failed_strategies.append(strategy_name)
+                summary['failed_strategies'] += 1
+            else:
+                successful_strategies.append(strategy_name)
+                summary['successful_strategies'] += 1
                 
+                trades = result.get('trades', [])
+                summary['total_trades'] += len(trades)
+        
+        # Find best and worst performers
+        if successful_strategies:
+            best_return = -float('inf')
+            worst_return = float('inf')
+            
+            for strategy_name in successful_strategies:
+                result = results[strategy_name]
+                metrics = result.get('metrics', {})
                 return_pct = metrics.get('total_return_pct', 0)
-                if return_pct > summary['best_return_pct']:
-                    summary['best_return_pct'] = return_pct
-                    summary['best_performing'] = strategy_name
+                
+                if return_pct > best_return:
+                    best_return = return_pct
+                    summary['best_performer'] = strategy_name
+                
+                if return_pct < worst_return:
+                    worst_return = return_pct
+                    summary['worst_performer'] = strategy_name
         
         return summary
