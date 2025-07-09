@@ -10,8 +10,8 @@ class OpeningRangeBreakoutStrategy(BaseStrategy):
         default_params = {
             'opening_minutes': 30,
             'volume_threshold': 1.5,
-            'stop_loss_atr': 1.5,
-            'take_profit_atr': 2.5
+            'stop_loss_pct': 0.7,          # 0.7% stop loss for breakout failure
+            'take_profit_pct': 1.5         # 1.5% take profit for intraday breakout
         }
         super().__init__("Opening Range Breakout", {**default_params, **(params or {})})
     
@@ -84,18 +84,14 @@ class OpeningRangeBreakoutStrategy(BaseStrategy):
     
     def should_exit(self, row: pd.Series, position: Dict[str, Any]) -> bool:
         """Check for exit conditions."""
-        if pd.isna(row.get('atr_14')):
-            return False
-        
         entry_price = position['entry_price']
         side = position['side']
-        atr = row['atr_14']
         
-        # Stop loss (1.5 ATR)
-        stop_loss = entry_price - (side * atr * self.params['stop_loss_atr'])
+        # Stop loss (percentage-based)
+        stop_loss = entry_price * (1 - side * self.params['stop_loss_pct'] / 100)
         
-        # Take profit (2.5 ATR)
-        take_profit = entry_price + (side * atr * self.params['take_profit_atr'])
+        # Take profit (percentage-based)
+        take_profit = entry_price * (1 + side * self.params['take_profit_pct'] / 100)
         
         # Exit if price hits stop loss or take profit
         if side == 1:  # Long position

@@ -123,14 +123,14 @@ class IndicatorEngine:
         df['date'] = df['time'].dt.date
         df['time_of_day'] = df['time'].dt.time
         
-        # Group by date and find first 30 minutes
-        opening_range = df.groupby('date').apply(
-            lambda x: x[x['time_of_day'] <= pd.Timestamp('09:30').time()]
-        )
+        # Filter for opening range (first 30 minutes of each day)
+        opening_cutoff = pd.Timestamp('09:30').time()
+        opening_range_mask = df['time_of_day'] <= opening_cutoff
+        opening_range_data = df[opening_range_mask]
         
-        # Calculate high and low for opening range
-        opening_high = opening_range.groupby('date')['high'].max()
-        opening_low = opening_range.groupby('date')['low'].min()
+        # Calculate high and low for opening range by date
+        opening_high = opening_range_data.groupby('date')['high'].max()
+        opening_low = opening_range_data.groupby('date')['low'].min()
         
         # Map back to original dataframe
         df['opening_high'] = df['date'].map(opening_high)

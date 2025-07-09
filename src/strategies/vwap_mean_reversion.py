@@ -13,8 +13,8 @@ class VWAPMeanReversionStrategy(BaseStrategy):
             'deviation_multiplier': 1.5,
             'rsi_oversold': 20,
             'rsi_overbought': 80,
-            'stop_loss_atr': 1.5,
-            'take_profit_atr': 2.0
+            'stop_loss_pct': 0.6,          # 0.6% stop loss for mean reversion
+            'take_profit_pct': 1.2         # 1.2% take profit for mean reversion
         }
         super().__init__("VWAP Mean Reversion", {**default_params, **(params or {})})
     
@@ -73,21 +73,20 @@ class VWAPMeanReversionStrategy(BaseStrategy):
     
     def should_exit(self, row: pd.Series, position: Dict[str, Any]) -> bool:
         """Check for exit conditions."""
-        if pd.isna(row.get('atr_14')) or pd.isna(row.get('vwap')):
+        if pd.isna(row.get('vwap')):
             return False
         
         entry_price = position['entry_price']
         side = position['side']
-        atr = row['atr_14']
         
-        # Stop loss (1.5 ATR)
-        stop_loss = entry_price - (side * atr * self.params['stop_loss_atr'])
+        # Stop loss (percentage-based)
+        stop_loss = entry_price * (1 - side * self.params['stop_loss_pct'] / 100)
         
-        # Take profit (2 ATR)
-        take_profit = entry_price + (side * atr * self.params['take_profit_atr'])
+        # Take profit (percentage-based)
+        take_profit = entry_price * (1 + side * self.params['take_profit_pct'] / 100)
         
         # Exit if price hits stop loss, take profit, or returns to VWAP
-        vwap_return = abs(row['close'] - row['vwap']) < (atr * 0.5)
+        vwap_return = abs(row['close'] - row['vwap']) < (entry_price * 0.003)  # 0.3% threshold
         
         if side == 1:  # Long position
             return (row['low'] <= stop_loss or 

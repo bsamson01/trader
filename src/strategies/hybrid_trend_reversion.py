@@ -14,8 +14,8 @@ class HybridTrendReversionStrategy(BaseStrategy):
             'rsi_oversold': 30,
             'rsi_overbought': 70,
             'atr_period': 14,
-            'stop_loss_atr': 1.5,
-            'take_profit_atr': 2.0
+            'stop_loss_pct': 0.8,          # 0.8% stop loss for trend following
+            'take_profit_pct': 1.6         # 1.6% take profit for hybrid approach
         }
         super().__init__("Hybrid Trend Reversion", {**default_params, **(params or {})})
     
@@ -77,18 +77,14 @@ class HybridTrendReversionStrategy(BaseStrategy):
     
     def should_exit(self, row: pd.Series, position: Dict[str, Any]) -> bool:
         """Check for exit conditions."""
-        if pd.isna(row.get('atr_14')):
-            return False
-        
         entry_price = position['entry_price']
         side = position['side']
-        atr = row['atr_14']
         
-        # Stop loss (1.5 ATR)
-        stop_loss = entry_price - (side * atr * self.params['stop_loss_atr'])
+        # Stop loss (percentage-based)
+        stop_loss = entry_price * (1 - side * self.params['stop_loss_pct'] / 100)
         
-        # Take profit (2 ATR)
-        take_profit = entry_price + (side * atr * self.params['take_profit_atr'])
+        # Take profit (percentage-based)
+        take_profit = entry_price * (1 + side * self.params['take_profit_pct'] / 100)
         
         # Exit if price hits stop loss, take profit, or RSI normalizes
         rsi = row[f'rsi_{self.params["rsi_period"]}']

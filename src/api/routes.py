@@ -72,8 +72,12 @@ async def analyze_strategies(strategy_params: Optional[Dict[str, Any]] = None):
         raise HTTPException(status_code=400, detail="No data uploaded. Please upload CSV data first.")
     
     try:
+        print(f"[DEBUG] current_data: {current_data.head()}")
+
         # Compute indicators
         df_with_indicators = indicator_engine.compute_all_indicators(current_data)
+
+        print(f"[DEBUG] df_with_indicators: {df_with_indicators.head()}")
         
         # Initialize strategies
         strategy_engine.initialize_strategies(strategy_params)

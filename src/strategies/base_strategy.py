@@ -73,6 +73,11 @@ class BaseStrategy(ABC):
                 # Close position
                 exit_price = row['close']
                 profit = (exit_price - current_position['entry_price']) * current_position['side']
+                profit_pct = (profit / current_position['entry_price']) * 100
+                
+                # Calculate R-multiple based on percentage risk
+                stop_loss_pct = self.params.get('stop_loss_pct', 0.8)  # Default fallback
+                r_multiple = profit_pct / stop_loss_pct if stop_loss_pct > 0 else 0
                 
                 trade = {
                     'entry_time': current_position['entry_time'],
@@ -81,10 +86,11 @@ class BaseStrategy(ABC):
                     'exit_price': exit_price,
                     'side': current_position['side'],
                     'profit': profit,
-                    'r_multiple': profit / (current_position['atr'] * 2),  # Assuming 2 ATR stop
+                    'profit_pct': profit_pct,
+                    'r_multiple': r_multiple,
                     'duration': (row['time'] - current_position['entry_time']).total_seconds() / 60,  # minutes
                     'strategy': self.name,
-                    'volatility_at_entry': current_position['atr'],
+                    'volatility_at_entry': row.get('atr_14', 0.001),
                     'signal_confidence': current_position.get('confidence', 0.5)
                 }
                 trades.append(trade)
@@ -98,7 +104,6 @@ class BaseStrategy(ABC):
                         'entry_time': row['time'],
                         'entry_price': row['close'],
                         'side': entry_signal['side'],
-                        'atr': row.get('atr_14', 0.001),
                         'confidence': entry_signal.get('confidence', 0.5)
                     }
         
@@ -112,8 +117,10 @@ class BaseStrategy(ABC):
             trades: List of trade dictionaries
             
         Returns:
-            Dictionary with performance metrics
+            Dictionary with performance metrics including capital tracking
         """
+        initial_capital = 100.0  # Starting with $100
+        
         if not trades:
             return {
                 'total_trades': 0,
@@ -121,7 +128,11 @@ class BaseStrategy(ABC):
                 'avg_profit': 0,
                 'avg_r_multiple': 0,
                 'max_drawdown': 0,
-                'avg_duration': 0
+                'avg_duration': 0,
+                'initial_capital': initial_capital,
+                'closing_capital': initial_capital,
+                'total_return_pct': 0.0,
+                'profit_factor': 0
             }
         
         df_trades = pd.DataFrame(trades)
@@ -135,6 +146,10 @@ class BaseStrategy(ABC):
         avg_profit = df_trades['profit'].mean()
         total_profit = df_trades['profit'].sum()
         
+        # Capital tracking
+        closing_capital = initial_capital + total_profit
+        total_return_pct = (total_profit / initial_capital) * 100
+        
         # R-multiple metrics
         avg_r_multiple = df_trades['r_multiple'].mean()
         
@@ -147,6 +162,11 @@ class BaseStrategy(ABC):
         drawdown = cumulative_profit - running_max
         max_drawdown = drawdown.min()
         
+        # Profit factor calculation
+        winning_profit = df_trades[df_trades['profit'] > 0]['profit'].sum()
+        losing_profit = abs(df_trades[df_trades['profit'] < 0]['profit'].sum())
+        profit_factor = winning_profit / losing_profit if losing_profit > 0 else float('inf')
+        
         return {
             'total_trades': total_trades,
             'winning_trades': winning_trades,
@@ -157,6 +177,8 @@ class BaseStrategy(ABC):
             'avg_r_multiple': avg_r_multiple,
             'max_drawdown': max_drawdown,
             'avg_duration': avg_duration,
-            'profit_factor': abs(df_trades[df_trades['profit'] > 0]['profit'].sum() / 
-                               df_trades[df_trades['profit'] < 0]['profit'].sum()) if len(df_trades[df_trades['profit'] < 0]) > 0 else float('inf')
+            'initial_capital': initial_capital,
+            'closing_capital': closing_capital,
+            'total_return_pct': total_return_pct,
+            'profit_factor': profit_factor
         }

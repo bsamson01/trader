@@ -13,8 +13,8 @@ class TrendVolatilityBreakoutStrategy(BaseStrategy):
             'lookback_period': 20,
             'atr_multiplier': 1.5,
             'adx_threshold': 25,
-            'stop_loss_atr': 2.0,
-            'take_profit_atr': 3.0
+            'stop_loss_pct': 0.8,          # 0.8% stop loss
+            'take_profit_pct': 1.8         # 1.8% take profit
         }
         super().__init__("Trend Volatility Breakout", {**default_params, **(params or {})})
     
@@ -64,18 +64,14 @@ class TrendVolatilityBreakoutStrategy(BaseStrategy):
     
     def should_exit(self, row: pd.Series, position: Dict[str, Any]) -> bool:
         """Check for exit conditions."""
-        if pd.isna(row.get('atr_14')):
-            return False
-        
         entry_price = position['entry_price']
         side = position['side']
-        atr = row['atr_14']
         
-        # Stop loss (2 ATR)
-        stop_loss = entry_price - (side * atr * self.params['stop_loss_atr'])
+        # Stop loss (percentage-based)
+        stop_loss = entry_price * (1 - side * self.params['stop_loss_pct'] / 100)
         
-        # Take profit (3 ATR)
-        take_profit = entry_price + (side * atr * self.params['take_profit_atr'])
+        # Take profit (percentage-based)
+        take_profit = entry_price * (1 + side * self.params['take_profit_pct'] / 100)
         
         # Exit if price hits stop loss or take profit
         if side == 1:  # Long position

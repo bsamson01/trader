@@ -56,7 +56,14 @@ A comprehensive trading strategy analysis tool that simulates and evaluates four
 
 3. **Run the application**
    ```bash
+   # On macOS/Linux, you might need to use python3
+   python3 main.py
+   
+   # Or if python is aliased correctly
    python main.py
+   
+   # Alternative: Run with uvicorn directly
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
 4. **Access the web interface**
@@ -125,21 +132,27 @@ strategy_params = {
     'trend_volatility_breakout': {
         'atr_period': 14,
         'adx_threshold': 25,
-        'stop_loss_atr': 2.0,
-        'take_profit_atr': 3.0
+        'stop_loss_pct': 0.8,      # 0.8% stop loss
+        'take_profit_pct': 1.8     # 1.8% take profit
     },
     'vwap_mean_reversion': {
         'deviation_multiplier': 1.5,
         'rsi_oversold': 20,
-        'rsi_overbought': 80
+        'rsi_overbought': 80,
+        'stop_loss_pct': 0.6,      # 0.6% stop loss
+        'take_profit_pct': 1.2     # 1.2% take profit
     },
     'opening_range_breakout': {
         'opening_minutes': 30,
-        'volume_threshold': 1.5
+        'volume_threshold': 1.5,
+        'stop_loss_pct': 0.7,      # 0.7% stop loss
+        'take_profit_pct': 1.5     # 1.5% take profit
     },
     'hybrid_trend_reversion': {
         'rsi_oversold': 30,
-        'rsi_overbought': 70
+        'rsi_overbought': 70,
+        'stop_loss_pct': 0.8,      # 0.8% stop loss
+        'take_profit_pct': 1.6     # 1.6% take profit
     }
 }
 ```
@@ -231,6 +244,52 @@ After running analysis on EURUSD data:
 - **Total Trades**: 1,247 across all strategies
 - **Best R-Multiple**: 2.34 average for Trend Breakout
 - **Lowest Drawdown**: 0.8% for Hybrid Strategy
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**"python: command not found" on macOS/Linux:**
+```bash
+# Use python3 instead
+python3 main.py
+
+# Or install with brew (macOS)
+brew install python3
+```
+
+**Port 80 permission denied:**
+- The app now runs on port 8000 by default (no admin required)
+- Access via: `http://localhost:8000`
+
+**Virtual Environment Issues:**
+```bash
+# Activate virtual environment first
+source venv/bin/activate  # macOS/Linux
+# or
+venv\Scripts\activate     # Windows
+
+# Then install requirements
+pip install -r requirements.txt
+```
+
+**Module Import Errors:**
+```bash
+# Make sure you're in the project directory
+cd forex-test
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**"Address already in use" Error:**
+```bash
+# Kill process on port 8000
+lsof -ti:8000 | xargs kill -9
+
+# Or use a different port
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
 
 ---
 

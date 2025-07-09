@@ -108,14 +108,27 @@ class StrategyEngine:
             'best_strategy': None,
             'worst_strategy': None,
             'total_trades': 0,
-            'overall_win_rate': 0
+            'overall_win_rate': 0,
+            'total_initial_capital': 0,
+            'total_closing_capital': 0,
+            'overall_return_pct': 0
         }
         
-        # Collect all trades
+        # Collect all trades and strategy performance
         all_trades = []
         strategy_performance = {}
+        total_initial = 0
+        total_closing = 0
         
         for strategy_name, result in results.items():
+            # Include all strategies, even those with no trades
+            metrics = result.get('metrics', {})
+            initial_capital = metrics.get('initial_capital', 100.0)
+            closing_capital = metrics.get('closing_capital', 100.0)
+            
+            total_initial += initial_capital
+            total_closing += closing_capital
+            
             if 'trades' in result and result['trades']:
                 trades = result['trades']
                 all_trades.extend(trades)
@@ -127,14 +140,29 @@ class StrategyEngine:
                     'win_rate': len(df_trades[df_trades['profit'] > 0]) / len(trades),
                     'total_profit': df_trades['profit'].sum(),
                     'avg_profit': df_trades['profit'].mean(),
-                    'avg_r_multiple': df_trades['r_multiple'].mean()
+                    'avg_r_multiple': df_trades['r_multiple'].mean(),
+                    'initial_capital': initial_capital,
+                    'closing_capital': closing_capital,
+                    'return_pct': metrics.get('total_return_pct', 0)
+                }
+            else:
+                # Include strategies with no trades
+                strategy_performance[strategy_name] = {
+                    'total_trades': 0,
+                    'win_rate': 0,
+                    'total_profit': 0,
+                    'avg_profit': 0,
+                    'avg_r_multiple': 0,
+                    'initial_capital': initial_capital,
+                    'closing_capital': closing_capital,
+                    'return_pct': 0
                 }
         
-        # Rank strategies by total profit
+        # Rank strategies by total return percentage
         if strategy_performance:
             sorted_strategies = sorted(
                 strategy_performance.items(),
-                key=lambda x: x[1]['total_profit'],
+                key=lambda x: x[1]['return_pct'],
                 reverse=True
             )
             
@@ -143,6 +171,10 @@ class StrategyEngine:
             analysis['worst_strategy'] = sorted_strategies[-1][0] if sorted_strategies else None
         
         # Calculate overall statistics
+        analysis['total_initial_capital'] = total_initial
+        analysis['total_closing_capital'] = total_closing
+        analysis['overall_return_pct'] = ((total_closing - total_initial) / total_initial * 100) if total_initial > 0 else 0
+        
         if all_trades:
             df_all_trades = pd.DataFrame(all_trades)
             analysis['total_trades'] = len(all_trades)
@@ -154,24 +186,29 @@ class StrategyEngine:
         """Generate a summary of all strategy results."""
         summary = {
             'total_strategies': len(results),
-            'successful_strategies': 0,
+            'strategies_with_trades': 0,
             'total_trades': 0,
-            'total_profit': 0,
-            'best_performing': None
+            'total_initial_capital': 0,
+            'total_closing_capital': 0,
+            'best_performing': None,
+            'best_return_pct': float('-inf')
         }
         
-        best_profit = float('-inf')
-        
         for strategy_name, result in results.items():
+            metrics = result.get('metrics', {})
+            initial_capital = metrics.get('initial_capital', 100.0)
+            closing_capital = metrics.get('closing_capital', 100.0)
+            return_pct = metrics.get('total_return_pct', 0)
+            
+            summary['total_initial_capital'] += initial_capital
+            summary['total_closing_capital'] += closing_capital
+            
             if 'trades' in result and result['trades']:
-                summary['successful_strategies'] += 1
+                summary['strategies_with_trades'] += 1
                 summary['total_trades'] += len(result['trades'])
                 
-                trades_profit = sum(trade['profit'] for trade in result['trades'])
-                summary['total_profit'] += trades_profit
-                
-                if trades_profit > best_profit:
-                    best_profit = trades_profit
+                if return_pct > summary['best_return_pct']:
+                    summary['best_return_pct'] = return_pct
                     summary['best_performing'] = strategy_name
         
         return summary

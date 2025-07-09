@@ -17,6 +17,7 @@ app.include_router(api_router, prefix="/api")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
+    print("Serving the main HTML interface")
     """Serve the main HTML interface"""
     return FileResponse("static/index.html")
 
@@ -26,4 +27,4 @@ async def health_check():
     return {"status": "healthy", "message": "Strategy Analyzer Tool is running"}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=80, reload=True)
