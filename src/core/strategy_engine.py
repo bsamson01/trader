@@ -8,6 +8,16 @@ from ..strategies.trend_volatility_breakout import TrendVolatilityBreakoutStrate
 from ..strategies.vwap_mean_reversion import VWAPMeanReversionStrategy
 from ..strategies.opening_range_breakout import OpeningRangeBreakoutStrategy
 from ..strategies.hybrid_trend_reversion import HybridTrendReversionStrategy
+from ..strategies.vwap_mean_reversion_scalper import VWAPMeanReversionScalperStrategy
+from ..strategies.trend_atr_breakout import TrendATRBreakoutStrategy
+from ..strategies.opening_range_breakout_orb import OpeningRangeBreakoutORBStrategy
+from ..strategies.bollinger_squeeze_expansion import BollingerSqueezeExpansionStrategy
+from ..strategies.rsi_pullback_trend import RSIPullbackTrendStrategy
+from ..strategies.donchian_channel_breakout import DonchianChannelBreakoutStrategy
+from ..strategies.macd_adx_filter import MACDADXFilterStrategy
+from ..strategies.breakout_pullback_continuation import BreakoutPullbackContinuationStrategy
+from ..strategies.heikin_ashi_trend_ride import HeikinAshiTrendRideStrategy
+from ..strategies.volume_spike_reversal import VolumeSpikeReversalStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +33,7 @@ class StrategyEngine:
         default_params = strategy_params or {}
         
         self.strategies = {
+            # Original strategies
             'trend_volatility_breakout': TrendVolatilityBreakoutStrategy(
                 default_params.get('trend_volatility_breakout', {})
             ),
@@ -34,6 +45,38 @@ class StrategyEngine:
             ),
             'hybrid_trend_reversion': HybridTrendReversionStrategy(
                 default_params.get('hybrid_trend_reversion', {})
+            ),
+            
+            # New strategies
+            'vwap_mean_reversion_scalper': VWAPMeanReversionScalperStrategy(
+                default_params.get('vwap_mean_reversion_scalper', {})
+            ),
+            'trend_atr_breakout': TrendATRBreakoutStrategy(
+                default_params.get('trend_atr_breakout', {})
+            ),
+            'opening_range_breakout_orb': OpeningRangeBreakoutORBStrategy(
+                default_params.get('opening_range_breakout_orb', {})
+            ),
+            'bollinger_squeeze_expansion': BollingerSqueezeExpansionStrategy(
+                default_params.get('bollinger_squeeze_expansion', {})
+            ),
+            'rsi_pullback_trend': RSIPullbackTrendStrategy(
+                default_params.get('rsi_pullback_trend', {})
+            ),
+            'donchian_channel_breakout': DonchianChannelBreakoutStrategy(
+                default_params.get('donchian_channel_breakout', {})
+            ),
+            'macd_adx_filter': MACDADXFilterStrategy(
+                default_params.get('macd_adx_filter', {})
+            ),
+            'breakout_pullback_continuation': BreakoutPullbackContinuationStrategy(
+                default_params.get('breakout_pullback_continuation', {})
+            ),
+            'heikin_ashi_trend_ride': HeikinAshiTrendRideStrategy(
+                default_params.get('heikin_ashi_trend_ride', {})
+            ),
+            'volume_spike_reversal': VolumeSpikeReversalStrategy(
+                default_params.get('volume_spike_reversal', {})
             )
         }
     
@@ -72,7 +115,7 @@ class StrategyEngine:
         results = {}
         
         # Run strategies in parallel
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=8) as executor:
             future_to_strategy = {
                 executor.submit(self.run_strategy, name, df): name 
                 for name in self.strategies.keys()
@@ -198,15 +241,15 @@ class StrategyEngine:
             metrics = result.get('metrics', {})
             initial_capital = metrics.get('initial_capital', 100.0)
             closing_capital = metrics.get('closing_capital', 100.0)
-            return_pct = metrics.get('total_return_pct', 0)
             
             summary['total_initial_capital'] += initial_capital
             summary['total_closing_capital'] += closing_capital
             
-            if 'trades' in result and result['trades']:
+            if result.get('trades'):
                 summary['strategies_with_trades'] += 1
                 summary['total_trades'] += len(result['trades'])
                 
+                return_pct = metrics.get('total_return_pct', 0)
                 if return_pct > summary['best_return_pct']:
                     summary['best_return_pct'] = return_pct
                     summary['best_performing'] = strategy_name

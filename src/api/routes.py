@@ -151,6 +151,7 @@ async def get_available_strategies():
     """Get list of available strategies."""
     return {
         "strategies": [
+            # Original strategies
             {
                 "name": "trend_volatility_breakout",
                 "description": "Trend + Volatility Breakout Strategy",
@@ -170,6 +171,58 @@ async def get_available_strategies():
                 "name": "hybrid_trend_reversion",
                 "description": "Hybrid Trend-Reversion Strategy",
                 "type": "Hybrid"
+            },
+            
+            # New strategies
+            {
+                "name": "vwap_mean_reversion_scalper",
+                "description": "VWAP Mean-Reversion Scalper Strategy",
+                "type": "Scalping"
+            },
+            {
+                "name": "trend_atr_breakout",
+                "description": "Trend + ATR Breakout Strategy",
+                "type": "Breakout"
+            },
+            {
+                "name": "opening_range_breakout_orb",
+                "description": "Opening Range Breakout (ORB) Strategy",
+                "type": "Breakout"
+            },
+            {
+                "name": "bollinger_squeeze_expansion",
+                "description": "Bollinger Band Squeeze Expansion Strategy",
+                "type": "Breakout"
+            },
+            {
+                "name": "rsi_pullback_trend",
+                "description": "RSI-2 Pullback in Trend Strategy",
+                "type": "Mean Reversion"
+            },
+            {
+                "name": "donchian_channel_breakout",
+                "description": "Donchian Channel 20-Bar Breakout Strategy",
+                "type": "Breakout"
+            },
+            {
+                "name": "macd_adx_filter",
+                "description": "MACD Cross with ADX Filter Strategy",
+                "type": "Momentum"
+            },
+            {
+                "name": "breakout_pullback_continuation",
+                "description": "Breakout-Pullback Continuation Strategy",
+                "type": "Continuation"
+            },
+            {
+                "name": "heikin_ashi_trend_ride",
+                "description": "Heikin-Ashi Trend Ride Strategy",
+                "type": "Trend Following"
+            },
+            {
+                "name": "volume_spike_reversal",
+                "description": "Volume Spike Reversal Strategy",
+                "type": "Reversal"
             }
         ]
     }
