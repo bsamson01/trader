@@ -402,6 +402,45 @@ async def get_trade_chart_data():
         logger.error(f"Error preparing chart data: {e}")
         raise HTTPException(status_code=500, detail=f"Error preparing chart data: {str(e)}")
 
+@router.get("/trades")
+async def get_trades():
+    """Get all trades from all strategies for display in UI table."""
+    if current_results is None:
+        raise HTTPException(status_code=400, detail="No analysis results available. Run analysis first.")
+    
+    try:
+        # Collect all trades from all strategies
+        all_trades = []
+        
+        for strategy_name, result in current_results['individual_results'].items():
+            if 'trades' in result and result['trades']:
+                trades = result['trades']
+                
+                # Add strategy name to each trade
+                for trade in trades:
+                    trade_with_strategy = trade.copy()
+                    trade_with_strategy['strategy'] = strategy_name
+                    
+                    # Format times for display
+                    if 'entry_time' in trade:
+                        trade_with_strategy['entry_time'] = trade['entry_time'].strftime('%Y-%m-%d %H:%M:%S')
+                    if 'exit_time' in trade:
+                        trade_with_strategy['exit_time'] = trade['exit_time'].strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    all_trades.append(trade_with_strategy)
+        
+        # Sort trades by entry time (most recent first)
+        all_trades.sort(key=lambda x: x.get('entry_time', ''), reverse=True)
+        
+        return {
+            "trades": all_trades,
+            "total_trades": len(all_trades)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error preparing trades data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error preparing trades data: {str(e)}")
+
 @router.get("/config/default")
 async def get_default_config():
     """Get default trading configuration parameters."""
