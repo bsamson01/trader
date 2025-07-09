@@ -36,6 +36,10 @@ async def upload_data(file: UploadFile = File(...)):
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
+        print(f"[DEBUG] Temp file path: {tmp_file_path}")
+        with open(tmp_file_path) as f:
+            for i in range(5):
+                print(f.readline().rstrip())
         
         # Load and validate data
         df = data_loader.load_csv(tmp_file_path)

@@ -24,38 +24,30 @@ class DataLoader:
             DataFrame with validated OHLCV data
         """
         try:
-            # Load CSV without headers (assuming no header row)
-            # Try tab-separated first, then comma-separated
-            try:
-                df = pd.read_csv(file_path, header=None, names=self.required_columns, sep='\t', engine='python')
-            except:
-                df = pd.read_csv(file_path, header=None, names=self.required_columns, engine='python')
-            
-            # Validate data
-            self._validate_data(df)
+            # Always use tab-separated for this format
+            df = pd.read_csv(file_path, header=None, names=self.required_columns, sep='\t', engine='python')
+            print("[DEBUG] Loaded raw data head:")
+            print(df.head())
+            print("[DEBUG] NaN counts after load:")
+            print(df.isna().sum())
             
             # Convert time column to datetime
             df['time'] = pd.to_datetime(df['time'])
-            
-            # Sort by time
-            df = df.sort_values('time').reset_index(drop=True)
-            
             # Convert price columns to float
             price_columns = ['open', 'high', 'low', 'close']
             for col in price_columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-            
             # Convert volume to int
             df['volume'] = pd.to_numeric(df['volume'], errors='coerce').astype(int)
-            
             # Remove any rows with NaN values
             df = df.dropna()
-            
+            print("[DEBUG] NaN counts after conversion and dropna:")
+            print(df.isna().sum())
+            # Sort by time
+            df = df.sort_values('time').reset_index(drop=True)
             self.data = df
             logger.info(f"Successfully loaded {len(df)} rows of data")
-            
             return df
-            
         except Exception as e:
             logger.error(f"Error loading CSV file: {e}")
             raise ValueError(f"Failed to load CSV file: {e}")
@@ -65,22 +57,8 @@ class DataLoader:
         # Check if we have the right number of columns
         if len(df.columns) != len(self.required_columns):
             raise ValueError(f"Expected {len(self.required_columns)} columns, got {len(df.columns)}")
-        
-        # Check for basic data quality
         if len(df) == 0:
             raise ValueError("CSV file is empty")
-        
-        # Check for reasonable price ranges (assuming forex data)
-        price_cols = ['open', 'high', 'low', 'close']
-        for col in price_cols:
-            if df[col].dtype == 'object':
-                # Try to convert to numeric
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            # Skip NaN check here as we'll handle it later
-            # if df[col].isna().any():
-            #     raise ValueError(f"Found NaN values in {col} column")
-        
         # Validate OHLC relationships
         invalid_ohlc = (
             (df['high'] < df['low']) |
@@ -89,7 +67,6 @@ class DataLoader:
             (df['open'] < df['low']) |
             (df['close'] < df['low'])
         )
-        
         if invalid_ohlc.any():
             raise ValueError("Found invalid OHLC relationships")
     
