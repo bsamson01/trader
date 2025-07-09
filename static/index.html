@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Analyzer Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+            background-color: #e3f2fd;
+        }
+        .upload-area.dragover {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        .status-card {
+            margin-top: 20px;
+        }
+        .results-section {
+            margin-top: 30px;
+        }
+        .strategy-card {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">📊 Strategy Analyzer Tool</h1>
+                <hr>
+            </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>📁 Upload Data</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="upload-area" id="uploadArea">
+                            <p class="mb-3">Drag and drop your CSV file here or click to browse</p>
+                            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                Select File
+                            </button>
+                        </div>
+                        <div id="uploadStatus" class="status-card"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Controls -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>⚙️ Analysis Controls</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary me-2" onclick="runAnalysis()">Run Analysis</button>
+                        <button class="btn btn-secondary me-2" onclick="clearData()">Clear Data</button>
+                        <div id="analysisStatus" class="status-card"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Information -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>📊 Data Information</h5>
+                    </div>
+                    <div class="card-body" id="dataInfo">
+                        <p class="text-muted">No data uploaded</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Strategy Performance -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>📈 Strategy Performance</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="performanceChart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Results -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🔍 Detailed Results</h5>
+                    </div>
+                    <div class="card-body" id="detailedResults">
+                        <p class="text-muted">No results available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Analysis -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>📋 Trade Analysis</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="tradeAnalysisChart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        function handleFileUpload(file) {
+            if (!file.name.endsWith('.csv')) {
+                showStatus('Please select a CSV file', 'danger');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showStatus('Uploading file...', 'info');
+
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showStatus(`✅ ${data.message} - ${data.rows} rows loaded`, 'success');
+                    updateDataInfo();
+                } else {
+                    showStatus('❌ Upload failed', 'danger');
+                }
+            })
+            .catch(error => {
+                showStatus(`❌ Error: ${error.message}`, 'danger');
+            });
+        }
+
+        function showStatus(message, type) {
+            uploadStatus.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+
+        function updateDataInfo() {
+            fetch('/api/data/info')
+            .then(response => response.json())
+            .then(data => {
+                if (data.total_rows) {
+                    document.getElementById('dataInfo').innerHTML = `
+                        <p><strong>📅 Date Range:</strong> ${data.date_range.start} to ${data.date_range.end}</p>
+                        <p><strong>📊 Total Rows:</strong> ${data.total_rows.toLocaleString()}</p>
+                        <p><strong>⏱️ Timeframe:</strong> ${data.timeframe}</p>
+                        <p><strong>💱 Symbol:</strong> ${data.symbol}</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching data info:', error);
+            });
+        }
+
+        function runAnalysis() {
+            const analysisStatus = document.getElementById('analysisStatus');
+            analysisStatus.innerHTML = `
+                <div class="alert alert-info">
+                    🔄 Running analysis...
+                </div>
+            `;
+
+            fetch('/api/analyze', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    analysisStatus.innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ ${data.message} - ${data.strategies_analyzed} strategies analyzed
+                        </div>
+                    `;
+                    updateResults();
+                } else {
+                    analysisStatus.innerHTML = `
+                        <div class="alert alert-danger">
+                            ❌ Analysis failed
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                analysisStatus.innerHTML = `
+                    <div class="alert alert-danger">
+                        ❌ Error: ${error.message}
+                    </div>
+                `;
+            });
+        }
+
+        function updateResults() {
+            fetch('/api/results')
+            .then(response => response.json())
+            .then(data => {
+                updatePerformanceChart(data);
+                updateDetailedResults(data);
+                updateTradeAnalysis(data);
+            })
+            .catch(error => {
+                console.error('Error fetching results:', error);
+            });
+        }
+
+        function updatePerformanceChart(data) {
+            const strategies = [];
+            const profits = [];
+            const winRates = [];
+
+            for (const [strategyName, result] of Object.entries(data.individual_results)) {
+                if (result.metrics && result.metrics.total_trades > 0) {
+                    strategies.push(strategyName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+                    profits.push(result.metrics.total_profit || 0);
+                    winRates.push((result.metrics.win_rate || 0) * 100);
+                }
+            }
+
+            if (strategies.length > 0) {
+                const trace = {
+                    x: strategies,
+                    y: profits,
+                    type: 'bar',
+                    name: 'Total Profit',
+                    marker: { color: 'lightblue' }
+                };
+
+                const layout = {
+                    title: 'Strategy Performance Comparison',
+                    xaxis: { title: 'Strategy' },
+                    yaxis: { title: 'Total Profit' },
+                    height: 400
+                };
+
+                Plotly.newPlot('performanceChart', [trace], layout);
+            }
+        }
+
+        function updateDetailedResults(data) {
+            const resultsContainer = document.getElementById('detailedResults');
+            let resultsHTML = '';
+
+            for (const [strategyName, result] of Object.entries(data.individual_results)) {
+                if (result.metrics && result.metrics.total_trades > 0) {
+                    const metrics = result.metrics;
+                    resultsHTML += `
+                        <div class="card strategy-card">
+                            <div class="card-header">
+                                <h6>${strategyName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Total Trades:</strong> ${metrics.total_trades}</p>
+                                <p><strong>Win Rate:</strong> ${(metrics.win_rate * 100).toFixed(1)}%</p>
+                                <p><strong>Total Profit:</strong> ${metrics.total_profit.toFixed(6)}</p>
+                                <p><strong>Avg R-Multiple:</strong> ${metrics.avg_r_multiple.toFixed(2)}</p>
+                                <p><strong>Max Drawdown:</strong> ${metrics.max_drawdown.toFixed(6)}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (resultsHTML) {
+                resultsContainer.innerHTML = resultsHTML;
+            } else {
+                resultsContainer.innerHTML = '<p class="text-muted">No results available</p>';
+            }
+        }
+
+        function updateTradeAnalysis(data) {
+            const allTrades = [];
+            
+            for (const [strategyName, result] of Object.entries(data.individual_results)) {
+                if (result.trades) {
+                    result.trades.forEach(trade => {
+                        trade.strategy = strategyName;
+                        allTrades.push(trade);
+                    });
+                }
+            }
+
+            if (allTrades.length > 0) {
+                const trace = {
+                    x: allTrades.map(t => t.duration),
+                    y: allTrades.map(t => t.profit),
+                    mode: 'markers',
+                    type: 'scatter',
+                    marker: {
+                        size: 8,
+                        color: allTrades.map(t => t.strategy),
+                        colorscale: 'Viridis'
+                    },
+                    text: allTrades.map(t => `${t.strategy}<br>Profit: ${t.profit.toFixed(6)}<br>Duration: ${t.duration.toFixed(1)} min`),
+                    hoverinfo: 'text'
+                };
+
+                const layout = {
+                    title: 'Trade Analysis: Profit vs Duration',
+                    xaxis: { title: 'Duration (minutes)' },
+                    yaxis: { title: 'Profit' },
+                    height: 400
+                };
+
+                Plotly.newPlot('tradeAnalysisChart', [trace], layout);
+            }
+        }
+
+        function clearData() {
+            fetch('/api/clear', {
+                method: 'DELETE'
+            })
+            .then(() => {
+                document.getElementById('dataInfo').innerHTML = '<p class="text-muted">No data uploaded</p>';
+                document.getElementById('detailedResults').innerHTML = '<p class="text-muted">No results available</p>';
+                document.getElementById('performanceChart').innerHTML = '';
+                document.getElementById('tradeAnalysisChart').innerHTML = '';
+                document.getElementById('uploadStatus').innerHTML = '';
+                document.getElementById('analysisStatus').innerHTML = '';
+            })
+            .catch(error => {
+                console.error('Error clearing data:', error);
+            });
+        }
+    </script>
+</body>
+</html>
