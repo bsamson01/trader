@@ -1,6 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 import pandas as pd
+import numpy as np
 import os
 import tempfile
 import logging
@@ -20,6 +22,66 @@ current_results = None
 data_loader = DataLoader()
 indicator_engine = IndicatorEngine()
 strategy_engine = StrategyEngine()
+
+class TradingConfig(BaseModel):
+    """Configuration model for trading parameters."""
+    # Capital Management
+    initial_capital: float = Field(default=100.0, description="Starting capital amount", gt=0)
+    min_balance_threshold: float = Field(default=0.0, description="Minimum balance to continue trading", ge=0)
+    position_size_pct: float = Field(default=0.02, description="Percentage of balance to risk per trade", gt=0, le=1)
+    position_size_fixed: Optional[float] = Field(default=None, description="Fixed position size (overrides percentage if set)", gt=0)
+    
+    # Risk Management
+    stop_loss_pct: float = Field(default=1.0, description="Stop loss as percentage of entry price", gt=0)
+    take_profit_pct: float = Field(default=2.0, description="Take profit as percentage of entry price", gt=0)
+    stop_loss_atr_multiplier: Optional[float] = Field(default=None, description="Alternative: stop loss as ATR multiple", gt=0)
+    take_profit_atr_multiplier: Optional[float] = Field(default=None, description="Alternative: take profit as ATR multiple", gt=0)
+    
+    # Trade Management
+    max_position_time: Optional[int] = Field(default=None, description="Max time to hold position (minutes)", gt=0)
+    use_global_exit_rules: bool = Field(default=True, description="Whether to use global exit rules")
+    
+    # Strategy-specific overrides
+    strategy_params: Optional[Dict[str, Dict[str, Any]]] = Field(default=None, description="Strategy-specific parameter overrides")
+
+def clean_for_json(obj):
+    """
+    Recursively clean data structure to remove NaN and infinity values 
+    that can't be serialized to JSON.
+    """
+    if isinstance(obj, dict):
+        return {key: clean_for_json(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_for_json(item) for item in obj]
+    elif isinstance(obj, (pd.Series, pd.DataFrame)):
+        # Convert pandas objects to dict/list and clean
+        if isinstance(obj, pd.DataFrame):
+            return clean_for_json(obj.to_dict('records'))
+        else:
+            return clean_for_json(obj.to_list())
+    elif isinstance(obj, np.ndarray):
+        return clean_for_json(obj.tolist())
+    elif pd.isna(obj) or obj is None:
+        return None
+    elif isinstance(obj, (float, np.floating)):
+        if np.isnan(obj):
+            return None
+        elif np.isinf(obj):
+            return None if obj < 0 else 999999999  # Large number instead of infinity
+        else:
+            return float(obj)
+    elif isinstance(obj, (int, np.integer)):
+        return int(obj)
+    elif isinstance(obj, str):
+        return obj
+    elif isinstance(obj, (bool, np.bool_)):
+        return bool(obj)
+    else:
+        # For other types, try to convert to string or return None
+        try:
+            return str(obj)
+        except:
+            return None
 
 @router.post("/upload")
 async def upload_data(file: UploadFile = File(...)):
@@ -64,8 +126,8 @@ async def upload_data(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 @router.post("/analyze")
-async def analyze_strategies(strategy_params: Optional[Dict[str, Any]] = None):
-    """Run strategy analysis on uploaded data."""
+async def analyze_strategies(config: Optional[TradingConfig] = None):
+    """Run strategy analysis on uploaded data with configurable parameters."""
     global current_data, current_results
     
     if current_data is None:
@@ -79,7 +141,28 @@ async def analyze_strategies(strategy_params: Optional[Dict[str, Any]] = None):
 
         print(f"[DEBUG] df_with_indicators: {df_with_indicators.head()}")
         
-        # Initialize strategies
+        # Prepare strategy parameters
+        strategy_params = {}
+        
+        if config:
+            # Convert config to dict and apply to all strategies
+            global_config = config.dict(exclude={'strategy_params'})
+            
+            # Apply global config to all strategies
+            for strategy_name in ['trend_volatility_breakout', 'vwap_mean_reversion', 
+                                'opening_range_breakout', 'hybrid_trend_reversion',
+                                'vwap_mean_reversion_scalper', 'trend_atr_breakout',
+                                'opening_range_breakout_orb', 'bollinger_squeeze_expansion',
+                                'rsi_pullback_trend', 'donchian_channel_breakout',
+                                'macd_adx_filter', 'breakout_pullback_continuation',
+                                'heikin_ashi_trend_ride', 'volume_spike_reversal']:
+                strategy_params[strategy_name] = global_config.copy()
+                
+                # Apply strategy-specific overrides if provided
+                if config.strategy_params and strategy_name in config.strategy_params:
+                    strategy_params[strategy_name].update(config.strategy_params[strategy_name])
+        
+        # Initialize strategies with configuration
         strategy_engine.initialize_strategies(strategy_params)
         
         # Run all strategies
@@ -88,11 +171,15 @@ async def analyze_strategies(strategy_params: Optional[Dict[str, Any]] = None):
         # Store results globally
         current_results = results
         
-        return {
+        # Add configuration info to response
+        response = {
             "message": "Analysis completed successfully",
             "summary": results['summary'],
-            "strategies_analyzed": len(results['individual_results'])
+            "strategies_analyzed": len(results['individual_results']),
+            "configuration": config.dict() if config else "default"
         }
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error running analysis: {e}")
@@ -104,7 +191,9 @@ async def get_results():
     if current_results is None:
         raise HTTPException(status_code=400, detail="No analysis results available. Run analysis first.")
     
-    return current_results
+    # Clean the results before returning to handle NaN values
+    cleaned_results = clean_for_json(current_results)
+    return cleaned_results
 
 @router.get("/results/{strategy_name}")
 async def get_strategy_results(strategy_name: str):
@@ -115,7 +204,10 @@ async def get_strategy_results(strategy_name: str):
     if strategy_name not in current_results['individual_results']:
         raise HTTPException(status_code=404, detail=f"Strategy '{strategy_name}' not found")
     
-    return current_results['individual_results'][strategy_name]
+    # Clean the results before returning to handle NaN values
+    strategy_result = current_results['individual_results'][strategy_name]
+    cleaned_result = clean_for_json(strategy_result)
+    return cleaned_result
 
 @router.get("/data/info")
 async def get_data_info():
@@ -225,6 +317,123 @@ async def get_available_strategies():
                 "type": "Reversal"
             }
         ]
+    }
+
+@router.get("/trades/chart")
+async def get_trade_chart_data():
+    """Get trade data combined with price data for visualization."""
+    if current_results is None:
+        raise HTTPException(status_code=400, detail="No analysis results available. Run analysis first.")
+    
+    if current_data is None:
+        raise HTTPException(status_code=400, detail="No price data available.")
+    
+    try:
+        # Prepare price data
+        price_data = current_data.copy()
+        
+        # Collect all trades from all strategies
+        all_trades = []
+        strategy_trades = {}
+        
+        for strategy_name, result in current_results['individual_results'].items():
+            if 'trades' in result and result['trades']:
+                trades = result['trades']
+                strategy_trades[strategy_name] = trades
+                
+                # Add strategy name to each trade
+                for trade in trades:
+                    trade_with_strategy = trade.copy()
+                    trade_with_strategy['strategy'] = strategy_name
+                    all_trades.append(trade_with_strategy)
+        
+        # Prepare chart data
+        chart_data = {
+            'price_data': {
+                'time': price_data['time'].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+                'open': price_data['open'].tolist(),
+                'high': price_data['high'].tolist(),
+                'low': price_data['low'].tolist(),
+                'close': price_data['close'].tolist(),
+                'volume': price_data['volume'].tolist()
+            },
+            'strategies': {},
+            'all_trades': all_trades
+        }
+        
+        # Organize trades by strategy for easier filtering
+        for strategy_name, trades in strategy_trades.items():
+            strategy_display_name = strategy_name.replace('_', ' ').title()
+            
+            entries = []
+            exits = []
+            
+            for trade in trades:
+                # Entry point
+                entries.append({
+                    'time': trade['entry_time'].strftime('%Y-%m-%d %H:%M:%S'),
+                    'price': trade['entry_price'],
+                    'side': 'Long' if trade['side'] == 1 else 'Short',
+                    'position_size': trade['position_size'],
+                    'confidence': trade.get('signal_confidence', 0.5)
+                })
+                
+                # Exit point
+                exits.append({
+                    'time': trade['exit_time'].strftime('%Y-%m-%d %H:%M:%S'),
+                    'price': trade['exit_price'],
+                    'profit': trade['profit'],
+                    'profit_pct': trade['profit_pct'],
+                    'exit_reason': trade.get('exit_reason', 'unknown'),
+                    'duration': trade['duration']
+                })
+            
+            chart_data['strategies'][strategy_name] = {
+                'display_name': strategy_display_name,
+                'entries': entries,
+                'exits': exits,
+                'total_trades': len(trades),
+                'metrics': current_results['individual_results'][strategy_name].get('metrics', {})
+            }
+        
+        return clean_for_json(chart_data)
+        
+    except Exception as e:
+        logger.error(f"Error preparing chart data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error preparing chart data: {str(e)}")
+
+@router.get("/config/default")
+async def get_default_config():
+    """Get default trading configuration parameters."""
+    return {
+        "default_config": TradingConfig().dict(),
+        "parameter_descriptions": {
+            "initial_capital": "Starting capital amount (must be > 0)",
+            "min_balance_threshold": "Minimum balance to continue trading (>= 0)",
+            "position_size_pct": "Percentage of balance to risk per trade (0-1)",
+            "position_size_fixed": "Fixed position size in currency units (overrides percentage)",
+            "stop_loss_pct": "Stop loss as percentage of entry price",
+            "take_profit_pct": "Take profit as percentage of entry price", 
+            "stop_loss_atr_multiplier": "Alternative: stop loss as multiple of ATR",
+            "take_profit_atr_multiplier": "Alternative: take profit as multiple of ATR",
+            "max_position_time": "Maximum time to hold position (minutes)",
+            "use_global_exit_rules": "Whether to use global exit rules",
+            "strategy_params": "Strategy-specific parameter overrides"
+        },
+        "example_config": {
+            "initial_capital": 1000.0,
+            "position_size_pct": 0.01,
+            "stop_loss_pct": 0.5,
+            "take_profit_pct": 1.5,
+            "max_position_time": 240,
+            "use_global_exit_rules": True,
+            "strategy_params": {
+                "vwap_mean_reversion": {
+                    "stop_loss_pct": 0.3,
+                    "take_profit_pct": 0.8
+                }
+            }
+        }
     }
 
 @router.delete("/clear")

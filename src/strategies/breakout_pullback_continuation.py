@@ -63,9 +63,9 @@ class BreakoutPullbackContinuationStrategy(BaseStrategy):
                 df.iloc[i, df.columns.get_loc('fib_78_level')] = breakout_high - self.fib_78 * breakout_range
         
         # Forward fill Fibonacci levels
-        df['fib_38_level'] = df['fib_38_level'].fillna(method='ffill')
-        df['fib_62_level'] = df['fib_62_level'].fillna(method='ffill')
-        df['fib_78_level'] = df['fib_78_level'].fillna(method='ffill')
+        df['fib_38_level'] = df['fib_38_level'].ffill()
+        df['fib_62_level'] = df['fib_62_level'].ffill()
+        df['fib_78_level'] = df['fib_78_level'].ffill()
         
         # Generate signals (entry at Fibonacci retracement)
         df['long_signal'] = (

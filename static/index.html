@@ -74,7 +74,137 @@
                     <div class="card-body">
                         <button class="btn btn-primary me-2" onclick="runAnalysis()">Run Analysis</button>
                         <button class="btn btn-secondary me-2" onclick="clearData()">Clear Data</button>
+                        <button class="btn btn-outline-info me-2" type="button" data-bs-toggle="collapse" data-bs-target="#configSection" aria-expanded="false" aria-controls="configSection">
+                            ⚙️ Configure Parameters
+                        </button>
+                        <button class="btn btn-outline-warning me-2" onclick="resetToDefaults()">↺ Reset to Defaults</button>
                         <div id="analysisStatus" class="status-card"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Configuration -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="collapse" id="configSection">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>🎛️ Trading Configuration</h5>
+                            <small class="text-muted">Configure trading parameters for all strategies</small>
+                        </div>
+                        <div class="card-body">
+                            <form id="configForm">
+                                <div class="row">
+                                    <!-- Capital Management -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-primary">💰 Capital Management</h6>
+                                        <div class="mb-3">
+                                            <label for="initialCapital" class="form-label">Initial Capital ($)</label>
+                                            <input type="number" class="form-control" id="initialCapital" value="100" min="1" step="0.01">
+                                            <div class="form-text">Starting capital amount for each strategy</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="positionSizePct" class="form-label">Position Size (%)</label>
+                                            <input type="number" class="form-control" id="positionSizePct" value="2" min="0.01" max="100" step="0.01">
+                                            <div class="form-text">Percentage of balance to risk per trade</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="positionSizeFixed" class="form-label">Fixed Position Size ($)</label>
+                                            <input type="number" class="form-control" id="positionSizeFixed" placeholder="Optional" min="0" step="0.01">
+                                            <div class="form-text">Fixed position size (overrides percentage if set)</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="minBalanceThreshold" class="form-label">Min Balance Threshold ($)</label>
+                                            <input type="number" class="form-control" id="minBalanceThreshold" value="0" min="0" step="0.01">
+                                            <div class="form-text">Minimum balance to continue trading</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Risk Management -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-danger">🛡️ Risk Management</h6>
+                                        <div class="mb-3">
+                                            <label for="stopLossPct" class="form-label">Stop Loss (%)</label>
+                                            <input type="number" class="form-control" id="stopLossPct" value="1.0" min="0.01" step="0.01">
+                                            <div class="form-text">Stop loss as percentage of entry price</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="takeProfitPct" class="form-label">Take Profit (%)</label>
+                                            <input type="number" class="form-control" id="takeProfitPct" value="2.0" min="0.01" step="0.01">
+                                            <div class="form-text">Take profit as percentage of entry price</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="stopLossAtr" class="form-label">Stop Loss ATR Multiplier</label>
+                                            <input type="number" class="form-control" id="stopLossAtr" placeholder="Optional" min="0" step="0.1">
+                                            <div class="form-text">Alternative: stop loss as multiple of ATR</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="takeProfitAtr" class="form-label">Take Profit ATR Multiplier</label>
+                                            <input type="number" class="form-control" id="takeProfitAtr" placeholder="Optional" min="0" step="0.1">
+                                            <div class="form-text">Alternative: take profit as multiple of ATR</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <!-- Trade Management -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-info">⏰ Trade Management</h6>
+                                        <div class="mb-3">
+                                            <label for="maxPositionTime" class="form-label">Max Position Time (minutes)</label>
+                                            <input type="number" class="form-control" id="maxPositionTime" placeholder="Optional" min="1" step="1">
+                                            <div class="form-text">Maximum time to hold a position</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="useGlobalExitRules" checked>
+                                                <label class="form-check-label" for="useGlobalExitRules">
+                                                    Use Global Exit Rules
+                                                </label>
+                                                <div class="form-text">Apply global stop loss and take profit rules</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Scenarios -->
+                                    <div class="col-md-6">
+                                        <h6 class="text-success">🚀 Quick Scenarios</h6>
+                                        <div class="mb-3">
+                                            <label class="form-label">Preset Configurations</label>
+                                            <div class="btn-group-vertical d-grid gap-2">
+                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadPreset('conservative')">
+                                                    Conservative (0.5% risk, 1:2 R/R)
+                                                </button>
+                                                <button type="button" class="btn btn-outline-warning btn-sm" onclick="loadPreset('moderate')">
+                                                    Moderate (1% risk, 1:2 R/R)
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="loadPreset('aggressive')">
+                                                    Aggressive (3% risk, 1:1.5 R/R)
+                                                </button>
+                                                <button type="button" class="btn btn-outline-info btn-sm" onclick="loadPreset('scalping')">
+                                                    Scalping (0.5% risk, quick exits)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="alert alert-info">
+                                            <strong>💡 Tips:</strong>
+                                            <ul class="mb-0">
+                                                <li>Start with conservative settings for new strategies</li>
+                                                <li>Higher position sizes = higher risk and potential returns</li>
+                                                <li>ATR-based stops adapt to market volatility</li>
+                                                <li>Set max position time to avoid holding losing trades too long</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -145,6 +275,45 @@
                     </div>
                     <div class="card-body">
                         <div id="tradeAnalysisChart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Visualization -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5>📈 Trade Visualization</h5>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#strategySelection" aria-expanded="false" aria-controls="strategySelection">
+                            ⚙️ Select Strategies
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Strategy Selection -->
+                        <div class="collapse mb-3" id="strategySelection">
+                            <div class="card card-body">
+                                <h6>📊 Strategy Selection</h6>
+                                <div class="row" id="strategyCheckboxes">
+                                    <div class="col-12">
+                                        <p class="text-muted">Run analysis first to see available strategies</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-primary btn-sm me-2" onclick="selectAllStrategies()">Select All</button>
+                                    <button class="btn btn-secondary btn-sm me-2" onclick="clearAllStrategies()">Clear All</button>
+                                    <button class="btn btn-success btn-sm" onclick="updateTradeChart()">Update Chart</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Chart Container -->
+                        <div id="tradeVisualizationChart" style="height: 600px;">
+                            <div class="d-flex justify-content-center align-items-center h-100">
+                                <p class="text-muted">Run analysis to view trade visualization</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -247,8 +416,15 @@
                 </div>
             `;
 
+            // Get configuration from form
+            const config = getConfigurationFromForm();
+
             fetch('/api/analyze', {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
             })
             .then(response => response.json())
             .then(data => {
@@ -256,6 +432,7 @@
                     analysisStatus.innerHTML = `
                         <div class="alert alert-success">
                             ✅ ${data.message} - ${data.strategies_analyzed} strategies analyzed
+                            ${config ? '<br><small>Configuration applied successfully</small>' : ''}
                         </div>
                     `;
                     updateResults();
@@ -276,6 +453,146 @@
             });
         }
 
+        function getConfigurationFromForm() {
+            const config = {
+                initial_capital: parseFloat(document.getElementById('initialCapital').value) || 100,
+                min_balance_threshold: parseFloat(document.getElementById('minBalanceThreshold').value) || 0,
+                position_size_pct: (parseFloat(document.getElementById('positionSizePct').value) || 2) / 100,
+                stop_loss_pct: parseFloat(document.getElementById('stopLossPct').value) || 1.0,
+                take_profit_pct: parseFloat(document.getElementById('takeProfitPct').value) || 2.0,
+                use_global_exit_rules: document.getElementById('useGlobalExitRules').checked
+            };
+
+            // Add optional fields only if they have values
+            const positionSizeFixed = document.getElementById('positionSizeFixed').value;
+            if (positionSizeFixed) {
+                config.position_size_fixed = parseFloat(positionSizeFixed);
+            }
+
+            const stopLossAtr = document.getElementById('stopLossAtr').value;
+            if (stopLossAtr) {
+                config.stop_loss_atr_multiplier = parseFloat(stopLossAtr);
+            }
+
+            const takeProfitAtr = document.getElementById('takeProfitAtr').value;
+            if (takeProfitAtr) {
+                config.take_profit_atr_multiplier = parseFloat(takeProfitAtr);
+            }
+
+            const maxPositionTime = document.getElementById('maxPositionTime').value;
+            if (maxPositionTime) {
+                config.max_position_time = parseInt(maxPositionTime);
+            }
+
+            return config;
+        }
+
+        function loadPreset(presetName) {
+            const presets = {
+                conservative: {
+                    initialCapital: 1000,
+                    positionSizePct: 0.5,
+                    stopLossPct: 0.5,
+                    takeProfitPct: 1.0,
+                    maxPositionTime: 480,
+                    useGlobalExitRules: true
+                },
+                moderate: {
+                    initialCapital: 1000,
+                    positionSizePct: 1.0,
+                    stopLossPct: 1.0,
+                    takeProfitPct: 2.0,
+                    maxPositionTime: 240,
+                    useGlobalExitRules: true
+                },
+                aggressive: {
+                    initialCapital: 1000,
+                    positionSizePct: 3.0,
+                    stopLossPct: 1.5,
+                    takeProfitPct: 2.25,
+                    maxPositionTime: 120,
+                    useGlobalExitRules: true
+                },
+                scalping: {
+                    initialCapital: 1000,
+                    positionSizePct: 0.5,
+                    stopLossPct: 0.2,
+                    takeProfitPct: 0.4,
+                    maxPositionTime: 15,
+                    useGlobalExitRules: true
+                }
+            };
+
+            const preset = presets[presetName];
+            if (preset) {
+                document.getElementById('initialCapital').value = preset.initialCapital;
+                document.getElementById('positionSizePct').value = preset.positionSizePct;
+                document.getElementById('stopLossPct').value = preset.stopLossPct;
+                document.getElementById('takeProfitPct').value = preset.takeProfitPct;
+                document.getElementById('maxPositionTime').value = preset.maxPositionTime;
+                document.getElementById('useGlobalExitRules').checked = preset.useGlobalExitRules;
+
+                // Clear optional fields
+                document.getElementById('positionSizeFixed').value = '';
+                document.getElementById('stopLossAtr').value = '';
+                document.getElementById('takeProfitAtr').value = '';
+                document.getElementById('minBalanceThreshold').value = 0;
+
+                // Show feedback
+                const alertElement = document.createElement('div');
+                alertElement.className = 'alert alert-success alert-dismissible fade show mt-2';
+                alertElement.innerHTML = `
+                    ✅ ${presetName.charAt(0).toUpperCase() + presetName.slice(1)} preset loaded!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.getElementById('configForm').appendChild(alertElement);
+
+                // Auto-remove alert after 3 seconds
+                setTimeout(() => {
+                    alertElement.remove();
+                }, 3000);
+            }
+        }
+
+        function resetToDefaults() {
+            // Fetch default configuration from API
+            fetch('/api/config/default')
+            .then(response => response.json())
+            .then(data => {
+                const defaults = data.default_config;
+                
+                document.getElementById('initialCapital').value = defaults.initial_capital;
+                document.getElementById('positionSizePct').value = defaults.position_size_pct * 100; // Convert to percentage
+                document.getElementById('stopLossPct').value = defaults.stop_loss_pct;
+                document.getElementById('takeProfitPct').value = defaults.take_profit_pct;
+                document.getElementById('useGlobalExitRules').checked = defaults.use_global_exit_rules;
+                document.getElementById('minBalanceThreshold').value = defaults.min_balance_threshold;
+
+                // Clear optional fields
+                document.getElementById('positionSizeFixed').value = '';
+                document.getElementById('stopLossAtr').value = '';
+                document.getElementById('takeProfitAtr').value = '';
+                document.getElementById('maxPositionTime').value = '';
+
+                // Show feedback
+                const alertElement = document.createElement('div');
+                alertElement.className = 'alert alert-info alert-dismissible fade show mt-2';
+                alertElement.innerHTML = `
+                    ↺ Configuration reset to defaults
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.getElementById('configForm').appendChild(alertElement);
+
+                // Auto-remove alert after 3 seconds
+                setTimeout(() => {
+                    alertElement.remove();
+                }, 3000);
+            })
+            .catch(error => {
+                console.error('Error fetching default config:', error);
+            });
+        }
+
         function updateResults() {
             fetch('/api/results')
             .then(response => response.json())
@@ -284,10 +601,189 @@
                 updatePerformanceChart(data);
                 updateDetailedResults(data);
                 updateTradeAnalysis(data);
+                loadTradeVisualizationData(data);
             })
             .catch(error => {
                 console.error('Error fetching results:', error);
             });
+        }
+
+        // Global variable to store chart data
+        let tradeChartData = null;
+
+        function loadTradeVisualizationData(resultsData) {
+            // Load trade chart data from API
+            fetch('/api/trades/chart')
+            .then(response => response.json())
+            .then(data => {
+                tradeChartData = data;
+                populateStrategySelection(data);
+                updateTradeChart();
+            })
+            .catch(error => {
+                console.error('Error fetching trade chart data:', error);
+            });
+        }
+
+        function populateStrategySelection(data) {
+            const container = document.getElementById('strategyCheckboxes');
+            const strategies = Object.keys(data.strategies);
+            
+            if (strategies.length === 0) {
+                container.innerHTML = '<div class="col-12"><p class="text-muted">No strategies with trades available</p></div>';
+                return;
+            }
+            
+            let html = '';
+            strategies.forEach((strategyName, index) => {
+                const strategy = data.strategies[strategyName];
+                const displayName = strategy.display_name;
+                const isChecked = index < 3 ? 'checked' : ''; // Check first 3 by default
+                
+                html += `
+                    <div class="col-md-4 col-sm-6 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input strategy-checkbox" type="checkbox" 
+                                   id="strategy_${strategyName}" value="${strategyName}" ${isChecked}>
+                            <label class="form-check-label" for="strategy_${strategyName}">
+                                ${displayName}
+                                <small class="text-muted">(${strategy.total_trades} trades)</small>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function selectAllStrategies() {
+            const checkboxes = document.querySelectorAll('.strategy-checkbox');
+            checkboxes.forEach(cb => cb.checked = true);
+        }
+
+        function clearAllStrategies() {
+            const checkboxes = document.querySelectorAll('.strategy-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+
+        function updateTradeChart() {
+            if (!tradeChartData) {
+                document.getElementById('tradeVisualizationChart').innerHTML = 
+                    '<div class="d-flex justify-content-center align-items-center h-100"><p class="text-muted">No chart data available</p></div>';
+                return;
+            }
+            
+            // Get selected strategies
+            const selectedStrategies = [];
+            document.querySelectorAll('.strategy-checkbox:checked').forEach(cb => {
+                selectedStrategies.push(cb.value);
+            });
+            
+            // Create candlestick chart
+            const priceData = tradeChartData.price_data;
+            
+            const candlestickTrace = {
+                x: priceData.time,
+                open: priceData.open,
+                high: priceData.high,
+                low: priceData.low,
+                close: priceData.close,
+                type: 'candlestick',
+                name: 'Price',
+                increasing: { line: { color: '#28a745' } },
+                decreasing: { line: { color: '#dc3545' } },
+                yaxis: 'y'
+            };
+            
+            const traces = [candlestickTrace];
+            
+            // Add trade markers for selected strategies
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a55eea', '#26de81', '#fd79a8'];
+            
+            selectedStrategies.forEach((strategyName, index) => {
+                const strategy = tradeChartData.strategies[strategyName];
+                const color = colors[index % colors.length];
+                
+                // Entry points
+                if (strategy.entries.length > 0) {
+                    traces.push({
+                        x: strategy.entries.map(e => e.time),
+                        y: strategy.entries.map(e => e.price),
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: `${strategy.display_name} Entry`,
+                        marker: {
+                            symbol: 'triangle-up',
+                            size: 12,
+                            color: color,
+                            line: { color: 'white', width: 2 }
+                        },
+                        text: strategy.entries.map(e => 
+                            `Entry: ${e.side}<br>Price: ${e.price.toFixed(5)}<br>Size: ${e.position_size.toFixed(2)}<br>Confidence: ${(e.confidence * 100).toFixed(0)}%`
+                        ),
+                        hoverinfo: 'text',
+                        yaxis: 'y'
+                    });
+                }
+                
+                // Exit points
+                if (strategy.exits.length > 0) {
+                    traces.push({
+                        x: strategy.exits.map(e => e.time),
+                        y: strategy.exits.map(e => e.price),
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: `${strategy.display_name} Exit`,
+                        marker: {
+                            symbol: 'triangle-down',
+                            size: 12,
+                            color: color,
+                            opacity: 0.8,
+                            line: { color: 'black', width: 1 }
+                        },
+                        text: strategy.exits.map(e => 
+                            `Exit: ${e.exit_reason}<br>Price: ${e.price.toFixed(5)}<br>Profit: ${e.profit >= 0 ? '+' : ''}${e.profit.toFixed(4)}<br>Return: ${e.profit_pct >= 0 ? '+' : ''}${e.profit_pct.toFixed(2)}%<br>Duration: ${e.duration.toFixed(0)}min`
+                        ),
+                        hoverinfo: 'text',
+                        yaxis: 'y'
+                    });
+                }
+            });
+            
+            const layout = {
+                title: {
+                    text: `Trade Visualization - ${selectedStrategies.length} Strategy(ies) Selected`,
+                    font: { size: 16 }
+                },
+                xaxis: {
+                    title: 'Time',
+                    rangeslider: { visible: false },
+                    type: 'date'
+                },
+                yaxis: {
+                    title: 'Price',
+                    side: 'left'
+                },
+                height: 580,
+                showlegend: true,
+                legend: {
+                    orientation: 'h',
+                    x: 0,
+                    y: -0.1
+                },
+                margin: { t: 50, b: 80, l: 80, r: 20 },
+                hovermode: 'closest'
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false
+            };
+            
+            Plotly.newPlot('tradeVisualizationChart', traces, layout, config);
         }
 
         function updatePortfolioSummary(data) {
@@ -303,6 +799,15 @@
             const totalTrades = summary.total_trades || 0;
             const overallWinRate = (comparative.overall_win_rate || 0) * 100;
             const bestStrategy = summary.best_performing || 'N/A';
+            
+            // Count stopped strategies
+            let stoppedStrategies = 0;
+            for (const [strategyName, result] of Object.entries(data.individual_results)) {
+                const metrics = result.metrics || {};
+                if (metrics.stopped_due_to_balance) {
+                    stoppedStrategies++;
+                }
+            }
             
             const overallProfit = totalClosingCapital - totalInitialCapital;
             const summaryClass = overallReturn > 0 ? 'text-success' : overallReturn < 0 ? 'text-danger' : 'text-secondary';
@@ -339,6 +844,7 @@
                     </div>
                     <div class="col-md-3">
                         <p><strong>📈 Strategies Active:</strong> ${strategiesWithTrades}/${totalStrategies}</p>
+                        ${stoppedStrategies > 0 ? `<small class="text-warning">⚠️ ${stoppedStrategies} stopped due to balance</small>` : ''}
                     </div>
                     <div class="col-md-3">
                         <p><strong>💰 Total P&L:</strong> <span class="${summaryClass}">$${overallProfit.toFixed(4)}</span></p>
@@ -435,31 +941,42 @@
                 const initialCapital = metrics.initial_capital || 100;
                 const closingCapital = metrics.closing_capital || 100;
                 const returnPct = metrics.total_return_pct || 0;
+                const stoppedDueToBalance = metrics.stopped_due_to_balance || false;
+                const minBalanceReached = metrics.min_balance_reached || initialCapital;
                 
-                // Determine card color based on performance
-                const cardClass = returnPct > 0 ? 'border-success' : returnPct < 0 ? 'border-danger' : 'border-secondary';
+                // Determine card color based on performance and status
+                let cardClass = returnPct > 0 ? 'border-success' : returnPct < 0 ? 'border-danger' : 'border-secondary';
+                if (stoppedDueToBalance) {
+                    cardClass += ' border-warning'; // Add warning border for stopped strategies
+                }
                 
                 resultsHTML += `
                     <div class="card strategy-card ${cardClass}">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">${strategyName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h6>
-                            <span class="badge ${returnPct > 0 ? 'bg-success' : returnPct < 0 ? 'bg-danger' : 'bg-secondary'}">
-                                ${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%
-                            </span>
+                            <div class="d-flex gap-2">
+                                ${stoppedDueToBalance ? '<span class="badge bg-warning text-dark">⚠️ STOPPED</span>' : ''}
+                                <span class="badge ${returnPct > 0 ? 'bg-success' : returnPct < 0 ? 'bg-danger' : 'bg-secondary'}">
+                                    ${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%
+                                </span>
+                            </div>
                         </div>
                         <div class="card-body">
+                            ${stoppedDueToBalance ? '<div class="alert alert-warning alert-sm mb-3"><strong>⚠️ Strategy stopped:</strong> Insufficient balance to continue trading</div>' : ''}
                             <div class="row">
                                 <div class="col-md-6">
                                     <p><strong>💰 Initial Capital:</strong> $${initialCapital.toFixed(2)}</p>
                                     <p><strong>💵 Closing Capital:</strong> $${closingCapital.toFixed(2)}</p>
                                     <p><strong>📈 Total Return:</strong> ${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%</p>
                                     <p><strong>📊 Total Trades:</strong> ${totalTrades}</p>
+                                    <p><strong>📊 Min Balance:</strong> $${minBalanceReached.toFixed(2)}</p>
                                 </div>
                                 <div class="col-md-6">
                                     <p><strong>🎯 Win Rate:</strong> ${winRate.toFixed(1)}%</p>
                                     <p><strong>💹 Total Profit:</strong> $${totalProfit.toFixed(4)}</p>
                                     <p><strong>⚖️ Avg R-Multiple:</strong> ${avgRMultiple.toFixed(2)}</p>
                                     <p><strong>📉 Max Drawdown:</strong> $${maxDrawdown.toFixed(4)}</p>
+                                    <p><strong>🔄 Status:</strong> ${stoppedDueToBalance ? '<span class="text-warning">Stopped</span>' : '<span class="text-success">Completed</span>'}</p>
                                 </div>
                             </div>
                         </div>
@@ -524,6 +1041,10 @@
                 document.getElementById('tradeAnalysisChart').innerHTML = '';
                 document.getElementById('uploadStatus').innerHTML = '';
                 document.getElementById('analysisStatus').innerHTML = '';
+                tradeChartData = null; // Clear trade chart data
+                document.getElementById('strategyCheckboxes').innerHTML = '<div class="col-12"><p class="text-muted">No strategies with trades available</p></div>';
+                document.getElementById('tradeVisualizationChart').innerHTML = 
+                    '<div class="d-flex justify-content-center align-items-center h-100"><p class="text-muted">No chart data available</p></div>';
             })
             .catch(error => {
                 console.error('Error clearing data:', error);
